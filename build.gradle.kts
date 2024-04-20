@@ -1,111 +1,116 @@
+@file:Suppress("UnstableApiUsage")
+
 import java.io.FileInputStream
 import java.time.Instant
 import java.util.Properties
 
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+  id("com.android.application")
+  id("org.jetbrains.kotlin.android")
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
-    if (keystorePropertiesFile.exists()) {
-        load(FileInputStream(keystorePropertiesFile))
-    }
+  if (keystorePropertiesFile.exists()) {
+    load(FileInputStream(keystorePropertiesFile))
+  }
 }
 
 android {
-    namespace = "com.github.app.android"
-    compileSdk = libs.versions.compileSdk.get().toInt()
+  namespace = "com.github.app.android"
+  compileSdk = libs.versions.compileSdk.get().toInt()
 
-    defaultConfig {
-        minSdk = libs.versions.minSdk.get().toInt()
-        targetSdk = libs.versions.targetSdk.get().toInt()
+  defaultConfig {
+    minSdk = libs.versions.minSdk.get().toInt()
+    targetSdk = libs.versions.targetSdk.get().toInt()
 
-        applicationId = "com.github.app.android"
-        versionCode = 1
-        versionName = "1.0"
+    applicationId = "com.github.app.android"
+    versionCode = 1
+    versionName = "1.0"
 
-        buildConfigField("String", "BUILD_TIME", "\"" + Instant.now().toString() + "\"")
+    buildConfigField("String", "BUILD_TIME", "\"" + Instant.now().toString() + "\"")
+  }
+
+  buildFeatures {
+    compose = true
+  }
+
+  composeOptions {
+    kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
+  }
+
+  packagingOptions {
+    resources {
+      excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+  }
 
-    buildFeatures {
-        compose = true
-    }
+  lint {
+    abortOnError = true
+    warningsAsErrors = false
+    checkReleaseBuilds = false
+    disable += listOf("HardcodedText", "ContentDescription")
+  }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
+  val currentSigning = if (keystorePropertiesFile.exists()) {
+    signingConfigs.create("release") {
+      storeFile = file(keystoreProperties["storeFile"] as String)
+      storePassword = keystoreProperties["storePassword"] as String
+      keyAlias = keystoreProperties["keyAlias"] as String
+      keyPassword = keystoreProperties["keyPassword"] as String
     }
+  } else {
+    signingConfigs.getByName("debug")
+  }
 
-    packagingOptions {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
+  buildTypes {
+    debug {
+      applicationIdSuffix = ".debug"
+      isDebuggable = true
+      isJniDebuggable = true
     }
+    release {
+      isDebuggable = false
+      isJniDebuggable = false
+      isMinifyEnabled = true
+      isShrinkResources = true
+      proguardFiles(
+        getDefaultProguardFile("proguard-android-optimize.txt"),
+        file("proguard-rules.pro")
+      )
+    }
+    all {
+      signingConfig = currentSigning
+    }
+  }
 
-    lintOptions {
-        isAbortOnError = false
-        disable("HardcodedText", "ContentDescription")
-    }
+  compileOptions {
+    // Flag to enable support for the new language APIs
+    isCoreLibraryDesugaringEnabled = true
+    // Sets Java compatibility to Java 8
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+  }
 
-    val currentSigning = if (keystorePropertiesFile.exists()) {
-        signingConfigs.create("release") {
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-        }
-    } else {
-        signingConfigs.getByName("debug")
-    }
-
-    buildTypes {
-        debug {
-            applicationIdSuffix = ".debug"
-            isDebuggable = true
-            isJniDebuggable = true
-            isZipAlignEnabled = false
-        }
-        release {
-            isDebuggable = false
-            isJniDebuggable = false
-            isZipAlignEnabled = true
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                file("proguard-rules.pro")
-            )
-        }
-        all {
-            signingConfig = currentSigning
-        }
-    }
-
-    compileOptions {
-        // Flag to enable support for the new language APIs
-        // For AGP 4.1+
-        isCoreLibraryDesugaringEnabled = true
-        // Sets Java compatibility to Java 8
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
+  kotlinOptions {
+    jvmTarget = "1.8"
+  }
 }
 
 dependencies {
-    implementation(project(":kmp-app-shared"))
-    // Compose
-    implementation(libs.compose.ui)
-    implementation(libs.compose.ui.tooling.preview)
-    implementation(libs.compose.material3)
-    // Compose Utils
-    implementation(libs.androidx.activity.compose)
-    debugImplementation(libs.compose.ui.tooling)
-    // desugar utils
-    coreLibraryDesugaring(libs.desugar.jdk.libs)
+  implementation(project(":kmp-app-shared"))
+
+  // Compose
+  implementation(libs.jetbrains.compose.ui)
+  implementation(libs.jetbrains.compose.ui.tooling.preview)
+  implementation(libs.jetbrains.compose.material3)
+
+  // Compose Utils
+  implementation(libs.androidx.activity.compose)
+
+  debugImplementation(libs.jetbrains.compose.ui.tooling)
+
+  // desugar utils
+  coreLibraryDesugaring(libs.desugar.jdk.libs)
 }
